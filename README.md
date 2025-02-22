@@ -1,5 +1,5 @@
 ## Compound (Deposit)
-Realiza n iterações do tipo lending na Base com um deposito fixo em 0.001 ETH
+Realiza n iterações do tipo lending na Base com um deposito fixo de 0.001 ETH
 
 OBS - Substituir XXXXXXXXXXXXXXX pela localização da Keystore
 
