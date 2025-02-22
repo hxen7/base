@@ -1,9 +1,12 @@
-## LEND  - Compound (Deposit)
-Substituir XXXXXXXXXXXXXXX pela localização da Keystore
+## Compound (Deposit)
+Realiza n iterações do tipo lending na Base com um deposito fixo em 0.001 ETH
 
-## LEND - Compound (Withdraw)
-Substituir XXXXXXXXXXXXXXX pela localização da Keystore
+OBS - Substituir XXXXXXXXXXXXXXX pela localização da Keystore
 
+## Compound (Withdraw)
+Realiza o saque no Compound do Ethereum depositado
+
+OBS - Substituir XXXXXXXXXXXXXXX pela localização da Keystore
 
 ## BASE - Checker
 https://www.onchainscore.xyz/
