@@ -10,7 +10,7 @@ Realiza o saque no Compound do Ethereum depositado
 
 ## Observações
 - OBS1 - Substituir XXXXXXXXXXXXXXX pela localização da Keystore
-- OBS2 - Substituir o RPC por um privado
+- OBS2 - Substituir o RPC púclico por um privado
 
 ## BASE - Checker
 - Oficial - https://www.onchainscore.xyz/
