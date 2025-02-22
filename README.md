@@ -8,9 +8,9 @@ O intervalo das transações são realizadas entre 30 e 60 segundos aleatoriamen
 Realiza o saque no Compound do Ethereum depositado
 - utiliza Keystore e getpass()
 
-
-OBS1 - Substituir XXXXXXXXXXXXXXX pela localização da Keystore
-OBS2 - Substituir o RPC por um privado
+## Observações
+- OBS1 - Substituir XXXXXXXXXXXXXXX pela localização da Keystore
+- OBS2 - Substituir o RPC por um privado
 
 ## BASE - Checker
 - Oficial - https://www.onchainscore.xyz/
