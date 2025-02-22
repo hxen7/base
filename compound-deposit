@@ -1,0 +1,137 @@
+from web3 import Web3
+from eth_account import Account
+from eth_abi import encode
+import json
+import sys
+from getpass import getpass
+import time
+import secrets
+
+# Configurações iniciais
+RPC_URL = "https://base.llamarpc.com/"  #substitua pela RPC de sua preferência
+CONTRACT_ADDRESS = "0x78D0677032A35c63D142a48A2037048871212a8C"
+WRAPPED_NATIVE_TOKEN = "0x46e6B214b524310239732D51387075E0e70970bf"
+
+# Conectar à rede Base
+web3 = Web3(Web3.HTTPProvider(RPC_URL))
+if not web3.is_connected():
+    raise Exception("Não foi possível conectar à rede Base")
+
+# Converter endereços para checksum
+CONTRACT_ADDRESS = web3.to_checksum_address(CONTRACT_ADDRESS)
+WRAPPED_NATIVE_TOKEN = web3.to_checksum_address(WRAPPED_NATIVE_TOKEN)
+
+# ABI do contrato
+CONTRACT_ABI = [
+    {"inputs":[{"internalType":"address","name":"admin_","type":"address"},{"internalType":"address payable","name":"wrappedNativeToken_","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+    {"inputs":[],"name":"FailedToSendNativeToken","type":"error"},{"inputs":[],"name":"InvalidAddress","type":"error"},
+    {"inputs":[],"name":"InvalidArgument","type":"error"},{"inputs":[],"name":"TransferInFailed","type":"error"},
+    {"inputs":[],"name":"TransferOutFailed","type":"error"},{"inputs":[],"name":"Unauthorized","type":"error"},
+    {"inputs":[],"name":"UnhandledAction","type":"error"},
+    {"anonymous":False,"inputs":[{"indexed":True,"internalType":"address","name":"oldAdmin","type":"address"},{"indexed":True,"internalType":"address","name":"newAdmin","type":"address"}],"name":"AdminTransferred","type":"event"},
+    {"inputs":[],"name":"ACTION_CLAIM_REWARD","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"ACTION_SUPPLY_ASSET","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"ACTION_SUPPLY_NATIVE_TOKEN","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"ACTION_TRANSFER_ASSET","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"ACTION_WITHDRAW_ASSET","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"ACTION_WITHDRAW_NATIVE_TOKEN","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"admin","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+    {"inputs":[{"internalType":"bytes32[]","name":"actions","type":"bytes32[]"},{"internalType":"bytes[]","name":"data","type":"bytes[]"}],"name":"invoke","outputs":[],"stateMutability":"payable","type":"function"},
+    {"inputs":[{"internalType":"address","name":"recipient","type":"address"}],"name":"sweepNativeToken","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"address","name":"recipient","type":"address"},{"internalType":"address","name":"asset","type":"address"}],"name":"sweepToken","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"address","name":"newAdmin","type":"address"}],"name":"transferAdmin","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[],"name":"wrappedNativeToken","outputs":[{"internalType":"address payable","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+    {"stateMutability":"payable","type":"receive"}
+]
+
+# Criar instância do contrato
+contract = web3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
+
+# Ler e descriptografar o arquivo keystore
+keystore_file = r"XXXXXXXXXXXXXXX"  #insira a localização da Keystore
+
+try:
+    with open(keystore_file, "r", encoding="utf-8") as keyfile:
+        encrypted_key = keyfile.read()
+except FileNotFoundError:
+    print(f"❌ Arquivo keystore não encontrado: {keystore_file}")
+    sys.exit(1)
+except Exception as e:
+    print(f"❌ Erro ao ler o arquivo keystore: {e}")
+    sys.exit(1)
+
+password = getpass("Digite a senha do Keystore: ")
+
+print("🔐 Descriptografando Keystore...")
+try:
+    private_key = Account.decrypt(encrypted_key, password)
+    if isinstance(private_key, bytes):
+        private_key = private_key.hex()  # Converter bytes para string hex se necessário
+except ValueError:
+    print("❌ Senha incorreta ou keystore inválido.")
+    sys.exit(1)
+except Exception as e:
+    print(f"❌ Erro inesperado ao descriptografar keystore: {e}")
+    sys.exit(1)
+
+account = Account.from_key(private_key)
+print(f"🔑 Conta carregada com sucesso: {account.address}")
+
+def withdraw_native_token():
+    # Obter o valor de ACTION_WITHDRAW_NATIVE_TOKEN
+    action_withdraw_native_token = contract.functions.ACTION_WITHDRAW_NATIVE_TOKEN().call()
+    
+    # Construir parâmetros do invoke
+    actions = [action_withdraw_native_token]
+    
+    # Codificar os dados: [endereço do contrato wrapped, endereço do destinatário, valor máximo]
+    encoded_data = encode(
+        ['address', 'address', 'uint256'],
+        [WRAPPED_NATIVE_TOKEN, account.address, 2**256 - 1]  # Valor máximo pra sacar tudo
+    )
+    data = [encoded_data]
+
+    # Obter preços de gas atuais
+    try:
+        gas_price = web3.eth.gas_price
+        max_fee = int(gas_price * 1.5)  # Buffer de 50%
+        priority_fee = int(gas_price * 0.1)  # 10% da taxa base
+    except Exception as e:
+        print(f"Aviso: Erro ao obter preço do gas, usando valores padrão: {e}")
+        max_fee = web3.to_wei(3.4, 'gwei')  # Valor da sua transação anterior
+        priority_fee = web3.to_wei(3.4, 'gwei')
+
+    # Construir transação
+    try:
+        nonce = web3.eth.get_transaction_count(account.address)
+        tx = contract.functions.invoke(actions, data).build_transaction({
+            'from': account.address,
+            'value': 0,  # Não envia ETH, apenas retira
+            'gas': 224537,  # Gas usado na transação anterior
+            'maxFeePerGas': max_fee,
+            'maxPriorityFeePerGas': priority_fee,
+            'nonce': nonce,
+            'chainId': 8453  # Rede Base
+        })
+
+        # Assinar e enviar transação
+        signed_tx = web3.eth.account.sign_transaction(tx, private_key)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        print(f"Transação enviada! Hash: {tx_hash.hex()}")
+        
+        # Aguardar confirmação
+        receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+        print(f"Transação confirmada no bloco {receipt.blockNumber}")
+        return receipt
+    except Exception as e:
+        print(f"Erro na transação: {str(e)}")
+        raise
+
+# Executar o saque
+print("\nIniciando retirada de ETH nativo...")
+try:
+    withdraw_native_token()
+except Exception as e:
+    print(f"Erro ao executar o saque: {str(e)}")
+
+print("\nRetirada concluída!")
