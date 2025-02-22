@@ -12,4 +12,4 @@ OBS - Substituir XXXXXXXXXXXXXXX pela localização da Keystore
 ## BASE - Checker
 - Oficial - https://www.onchainscore.xyz/
 - Wenser - https://wenser.xyz/check/base/
-- ZK Codex - https://zkcodex.com/
+- ZK Codex - https://zkcodex.com/base/
